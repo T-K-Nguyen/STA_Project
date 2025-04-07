@@ -132,16 +132,6 @@ def request_chunk(peer_ip, peer_port, start, size, save_path):
     except Exception as e:
         print(f"[DOWNLOAD] Error: {e}")
 
-# def download_chunk(peer, index, piece_length, temp_path):
-#     temp_file = f"{temp_path}.part{index}"
-#     try:
-#         request_chunk(peer['ip'], peer['port'], index * piece_length, piece_length, temp_file)
-#         with open(temp_file, 'rb') as f:
-#             data = f.read()
-#         return data
-#     except Exception as e:
-#         print(f"[ERROR] Failed to download piece {index} from {peer['ip']}:{peer['port']}")
-#         return None
 def download_chunk(peer, index, piece_length, temp_path):
     temp_file = f"{temp_path}.part{index}"
     try:
@@ -152,25 +142,6 @@ def download_chunk(peer, index, piece_length, temp_path):
     except Exception as e:
         print(f"[ERROR] Failed to download piece {index} from {peer['ip']}:{peer['port']}")
         return index, None  # returns a tuple even on error
-# def download_from_peers(peers, torrent_info, save_path):
-#     total_size = torrent_info['file_size']
-#     piece_length = torrent_info['piece_length']
-#     num_pieces = (total_size + piece_length - 1) // piece_length
-#
-#     with open(save_path, 'wb') as f:
-#         for index in range(num_pieces):
-#             success = False
-#             for peer in peers:
-#                 chunk = download_chunk(peer, index, piece_length, save_path)
-#                 if chunk:
-#                     f.write(chunk)
-#                     print(f"[OK] Downloaded piece {index} from {peer['ip']}:{peer['port']}")
-#                     success = True
-#                     break
-#             if not success:
-#                 print(f"[FAIL] Could not download piece {index} from any peer.")
-#                 return False
-#     return True
 
 def download_from_peers(peers, torrent_info, save_path, max_workers=config.constants.MAX_SPLITTNES_RATE):
     print("===== Parallel Download Started =====")

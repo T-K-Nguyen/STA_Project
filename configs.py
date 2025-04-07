@@ -15,8 +15,7 @@ def get_host_default_interface_ip():
 CFG = {
     "directory": {
         "metainfo_dir": "metainfo/",
-        "node_files_dir": "node_files/",
-        "tracker_db_dir": "tracker_db/"
+        "download_dir": "download/",
     },
     "constants": {
         "AVAILABLE_PORTS_RANGE": (1, 65535), # range of available ports on the local computer
@@ -28,29 +27,23 @@ CFG = {
         "NODE_TIME_INTERVAL": 20,        # the interval time that each node periodically informs the tracker (in seconds)
         "TRACKER_TIME_INTERVAL": 22      #the interval time that the tracker periodically checks which nodes are in the torrent (in seconds)
     },
-    "tracker_requests_mode": {
-        "REGISTER": 0,  # tells the tracker that it is in the torrent
-        "OWN": 1,       # tells the tracker that it is now in sending mode for a specific file
-        "NEED": 2,      # tells the torrent that it needs a file, so the file must be searched in torrent
-        "UPDATE": 3,    # tells tracker that it's upload freq rate must be incremented)
-        "EXIT": 4       # tells the tracker that it left the torrent
-    }
+
 }
 
 
 class Config:
     """Config class which contains directories, constants, etc."""
 
-    def __init__(self, directory, constants, tracker_requests_mode):
+    def __init__(self, directory, constants):
         self.directory = directory
         self.constants = constants
-        self.tracker_requests_mode = tracker_requests_mode
+
 
     @classmethod
     def from_json(cls, cfg):
         """Creates config from json"""
         params = json.loads(json.dumps(cfg), object_hook=HelperObject)
-        return cls(params.directory, params.constants, params.tracker_requests_mode)
+        return cls(params.directory, params.constants)
 
 
 class HelperObject(object):
