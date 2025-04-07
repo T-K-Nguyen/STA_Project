@@ -7,6 +7,7 @@ import os
 import json
 import bencodepy
 import hashlib
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from configs import CFG, Config, get_host_default_interface_ip
 config = Config.from_json(CFG)
 
@@ -15,7 +16,7 @@ PIECE_SIZE = config.constants.CHUNK_PIECES_SIZE  # 512KB per piece
 flag = 0
 
 #----------------------------------FOLDER & METAINFO (.TORRENT)-----------------------
-def create_torrent_file(file_path, piece_length=512, torrent_path=None):
+def create_torrent_file(file_path, piece_length=1024, torrent_path=None):
     file_name = os.path.basename(file_path)
     file_size = os.path.getsize(file_path)
     num_pieces = (file_size + piece_length - 1) // piece_length
@@ -131,35 +132,88 @@ def request_chunk(peer_ip, peer_port, start, size, save_path):
     except Exception as e:
         print(f"[DOWNLOAD] Error: {e}")
 
+# def download_chunk(peer, index, piece_length, temp_path):
+#     temp_file = f"{temp_path}.part{index}"
+#     try:
+#         request_chunk(peer['ip'], peer['port'], index * piece_length, piece_length, temp_file)
+#         with open(temp_file, 'rb') as f:
+#             data = f.read()
+#         return data
+#     except Exception as e:
+#         print(f"[ERROR] Failed to download piece {index} from {peer['ip']}:{peer['port']}")
+#         return None
 def download_chunk(peer, index, piece_length, temp_path):
     temp_file = f"{temp_path}.part{index}"
     try:
         request_chunk(peer['ip'], peer['port'], index * piece_length, piece_length, temp_file)
         with open(temp_file, 'rb') as f:
             data = f.read()
-        return data
+        return index, data  # returns a tuple
     except Exception as e:
         print(f"[ERROR] Failed to download piece {index} from {peer['ip']}:{peer['port']}")
-        return None
+        return index, None  # returns a tuple even on error
+# def download_from_peers(peers, torrent_info, save_path):
+#     total_size = torrent_info['file_size']
+#     piece_length = torrent_info['piece_length']
+#     num_pieces = (total_size + piece_length - 1) // piece_length
+#
+#     with open(save_path, 'wb') as f:
+#         for index in range(num_pieces):
+#             success = False
+#             for peer in peers:
+#                 chunk = download_chunk(peer, index, piece_length, save_path)
+#                 if chunk:
+#                     f.write(chunk)
+#                     print(f"[OK] Downloaded piece {index} from {peer['ip']}:{peer['port']}")
+#                     success = True
+#                     break
+#             if not success:
+#                 print(f"[FAIL] Could not download piece {index} from any peer.")
+#                 return False
+#     return True
 
-def download_from_peers(peers, torrent_info, save_path):
+def download_from_peers(peers, torrent_info, save_path, max_workers=config.constants.MAX_SPLITTNES_RATE):
+    print("===== Parallel Download Started =====")
     total_size = torrent_info['file_size']
     piece_length = torrent_info['piece_length']
+    # file_name = torrent_info['file_name']
     num_pieces = (total_size + piece_length - 1) // piece_length
 
-    with open(save_path, 'wb') as f:
-        for index in range(num_pieces):
-            success = False
-            for peer in peers:
-                chunk = download_chunk(peer, index, piece_length, save_path)
+    # Prepare empty list for chunks
+    chunk_results = [None] * num_pieces
+
+    def download_task(index):
+        peer = peers[index % len(peers)]
+        return download_chunk(peer, index, piece_length, save_path)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_index = {
+            executor.submit(download_task, i): i for i in range(num_pieces)
+        }
+
+        for future in as_completed(future_to_index):
+            index = future_to_index[future]
+            try:
+                i, chunk = future.result()
                 if chunk:
-                    f.write(chunk)
-                    print(f"[OK] Downloaded piece {index} from {peer['ip']}:{peer['port']}")
-                    success = True
-                    break
-            if not success:
-                print(f"[FAIL] Could not download piece {index} from any peer.")
-                return False
+                    chunk_results[i] = chunk
+                    print(f"[OK] Piece {i} from {peers[i % len(peers)]['ip']}")
+                else:
+                    print(f"[FAIL] Piece {i} failed.")
+            except Exception as e:
+                print(f"[ERROR] Piece {index} failed with {e}")
+
+    # Check if all pieces downloaded
+    if None in chunk_results:
+        print("[ERROR] Some chunks failed to download.")
+        return False
+
+    # Write full file
+    with open(save_path, 'wb') as f:
+        for chunk in chunk_results:
+            f.write(chunk)
+
+    print("[✓] File download complete and reassembled.")
     return True
 
 def download_mode(torrent_info, peers):
@@ -243,16 +297,11 @@ def connect_to_tracker(host, port, peerip, peerport):
             response = send_message(tracker_socket, user_input)
             print(response)
 
-            print("milestone -1")
             info_hash = get_info_hash(torrent_file)
-            print("milestone 0")
             torrent_info = parse_torrent_file(torrent_file)
-            print("milestone 1")
-
             peerlist_response = send_message(tracker_socket, json.dumps(info_hash))
-            print("milestone 2")
             peer_list = json.loads(peerlist_response)
-            print("milestone 3")
+            print("milestone 0")
             download_mode(torrent_info, peer_list)
 
         elif user_input.startswith("send"):
@@ -300,5 +349,5 @@ if __name__ == "__main__":
 
     # Thread(target=host_peer, args=[peer_host, peer_port]).start()
 
-    th = Thread(target=connect_to_tracker, args=[tracker_host, tracker_port, peer_host, peer_port])
-    th.start()
+    connect_to_tracker(tracker_host, tracker_port, peer_host, peer_port)
+

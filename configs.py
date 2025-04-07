@@ -24,7 +24,7 @@ CFG = {
         "MAX_SEGMENT_DATA_SIZE": 65527,
         "BUFFER_SIZE": 1024,        # MACOSX UDP MTU is 9216
         "CHUNK_PIECES_SIZE": 512 * 1024, # Each chunk pieces(segments) must be lower than buffer size
-        "MAX_SPLITTNES_RATE": 3,    # number of neighboring peers which the node take chunks of a file in parallel
+        "MAX_SPLITTNES_RATE": 4,    # number of neighboring peers which the node take chunks of a file in parallel
         "NODE_TIME_INTERVAL": 20,        # the interval time that each node periodically informs the tracker (in seconds)
         "TRACKER_TIME_INTERVAL": 22      #the interval time that the tracker periodically checks which nodes are in the torrent (in seconds)
     },
