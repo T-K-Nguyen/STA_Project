@@ -102,8 +102,9 @@ class Tracker:
                 response = json.dumps(self.history, indent=2)
                 print(response)
             elif command == "exit":
+                print("You have exited the tracker.")
+                print("Exiting...")
                 exit(0)
-                break
             else:
                 print("Invalid Command")
 
@@ -123,8 +124,9 @@ class Tracker:
 if __name__ == "__main__":
     tracker = Tracker()
 
-    th = Thread(target=tracker.lishis,args=[tracker, ] , daemon=True)
+    th = Thread(target=tracker.run_tracker,args=[] , daemon=True)
     th.start()
-    tracker.run_tracker()
+
+    tracker.lishis(tracker)
 
 

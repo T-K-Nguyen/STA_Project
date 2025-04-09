@@ -35,3 +35,15 @@ def generate_random_port() -> int:
         rand_port = random.randint(available_ports[0], available_ports[1])
     used_ports.append(rand_port)
     return rand_port
+
+def find_unused_port() -> int:
+    '''
+    This function finds an unused port number
+
+    :return: A random integer in range of [1, 65535]
+    '''
+    port = generate_random_port()
+    while port in used_ports:
+        port = generate_random_port()
+    used_ports.append(port)
+    return port
