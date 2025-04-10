@@ -177,7 +177,7 @@ class Peer:
         num_pieces = (total_size + piece_length - 1) // piece_length
 
         # Prepare empty list for chunks
-        chunk_results = [None] * num_pieces
+        #chunk_results = [None] * num_pieces
 
         not_success = []
 
@@ -198,7 +198,7 @@ class Peer:
                 try:
                     i, chunk = future.result()
                     if chunk:
-                        chunk_results[i] = chunk
+                        #chunk_results[i] = chunk
                         print(f"[OK] Piece {i} from {peers[i % len(peers)]['ip']}")
                     else:
                         print(f"[FAIL] Piece {i} failed.")
@@ -212,24 +212,27 @@ class Peer:
         if not_success:
             print("[ERROR] Some pieces failed to download. Retrying...")
             for i in not_success:
-                chunk_results[i] = self.download_task(peers[i % len(peers)], i, piece_length, save_path)
-                if chunk_results[i] is None:
+                chunk = download_task(i, os.path.join(random_folder_name, torrent_info["file_name"]))
+                if chunk is None:
                     print(f"[ERROR] Piece {i} failed again.")
                     return False
                 else:
                     #print(f"[OK] Piece {i} downloaded successfully.")
-                    chunk_results[i] = chunk_results[i][1]  # Unpack the tuple
+                    #chunk_results[i] = chunk_results[i][1]  # Unpack the tuple
+                    not_success.remove(i)
                     print(f"[OK] Piece {i} from {peers[i % len(peers)]['ip']}")
                     
-        if None in chunk_results:
+        if not_success:
             print("[ERROR] Some chunks failed to download.")
             return False
 
         # Write full file
         with open(save_path, 'wb') as f:
-            for chunk in chunk_results:
-                f.write(chunk)
-
+            for i in range(num_pieces):
+                temp_file = os.path.join(random_folder_name, f"{torrent_info['file_name']}.part_{i}")
+                with open(temp_file, 'rb') as chunk_file:
+                    f.write(chunk_file.read())
+                os.remove(temp_file)
         
         try:
             import shutil
@@ -327,12 +330,13 @@ class Peer:
                     print("----------Invalid file input---------------")
                     continue
 
-                response = self.send_message(tracker_socket, user_input)
-                print(response)
+                # response = self.send_message(tracker_socket, user_input)
+                # print(response)
 
                 info_hash = self.get_info_hash(torrent_file)
                 torrent_info = self.parse_torrent_file(torrent_file)
-                peerlist_response = self.send_message(tracker_socket, json.dumps(info_hash))
+                user_input += f" {info_hash}"
+                peerlist_response = self.send_message(tracker_socket, user_input)
                 peer_list = json.loads(peerlist_response)
                 #print("milestone 0")
                 self.download_mode(torrent_info, peer_list)
@@ -350,7 +354,8 @@ class Peer:
                 print(f"Peers that have the {filename} file")
                 torrent_file_path = f"metainfo/{filename}.torrent"
 
-                self.listen_port.append(find_unused_port())
+                self.listen_port.append(generate_random_port())
+                print(f"Listening on port {self.listen_port[-1]}")
                 # Announce to tracker about the file
                 self.announce_to_tracker(
                     tracker_port=tracker_socket,
@@ -361,7 +366,7 @@ class Peer:
                     event='started'
                 )
 
-                t = Thread(target=lambda: self.send_mode(filename, self.listen_port[:-1]))
+                t = Thread(target=lambda: self.send_mode(filename, self.listen_port[-1]))
                 t.daemon = True
                 self.threads.append(t)
                 t.start()

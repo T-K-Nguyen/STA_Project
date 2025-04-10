@@ -1,3 +1,7 @@
 __pycache__/
 
 my_venv/
+
+downloads/*.txt
+
+metainfo/*.torrent

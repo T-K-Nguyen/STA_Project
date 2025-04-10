@@ -2,7 +2,6 @@ import socket
 from threading import Thread
 from datetime import datetime
 import time
-import socket
 import threading
 import bencodepy
 import hashlib
@@ -34,12 +33,13 @@ class Tracker:
         while True:
             try:
                 data = conn.recv(config.constants.BUFFER_SIZE).decode()
+                time.sleep(0.1)
                 self.history.append(data)
-                command, *args = data.split(" ", 1)
+                data_list = data.split(" ")
                 # print(f"this is the decoded data: {data}") # for debug purposes
-
+                command = data_list[0]
                 if command == "send":
-                    filename = args[0]
+                    filename = data_list[1]
                     conn.send("Enter send mode.\n".encode())
 
                     data_from_announce = conn.recv(config.constants.BUFFER_SIZE).decode()
@@ -69,13 +69,22 @@ class Tracker:
 
                 elif command == "download":
                     try:
-                        filename = args[0]
-                        conn.send("Enter download mode \n".encode())
-                        data_from_announce = conn.recv(config.constants.BUFFER_SIZE).decode()
-                        info_hash = json.loads(data_from_announce)
-                        conn.send(json.dumps(self.peers[info_hash]).encode())
+                        filename = data_list[1]
+                        info_hash = data_list[2]
+                        info_hash = info_hash.strip()
+                        #print(data_from_announce)
+                        #conn.send("Enter download mode \n".encode())
+                        #data_from_announce = conn.recv(config.constants.BUFFER_SIZE).decode()
+                        print(f"this is the data from announce: {info_hash}")
+                        #info_hash = json.loads(data_from_announce)
+                        #print(f"info_hash: {info_hash}")
+                        peer_list = self.peers.get(info_hash, [])
+                        
+                        print(f"[Tracker] Peers list cho {info_hash}: {peer_list}")
+                        conn.send(json.dumps(peer_list).encode())
                     except Exception as e:
                         print(f"[Peer] Failed to getting peers list from tracker: {e}")
+
                 elif command == "exit":
                     break
 
