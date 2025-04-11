@@ -1,111 +1,343 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox
+import customtkinter as ctk
+from tkinter import filedialog, messagebox, DISABLED, CENTER, NORMAL
 from utils import *
 import socket
 import random
 from threading import Thread
+import pickle
+import threading
 import time
 import os
 import json
 import hashlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from configs import CFG, Config, get_host_default_interface_ip
+import math
 
+WIDTH = 900
+HEIGHT = 600
 config = Config.from_json(CFG)
 
+subFileSize= 512*1024 # 512KB
 PIECE_SIZE = config.constants.CHUNK_PIECES_SIZE  # 512KB per piece
 flag = 0
+
+tracker_host = config.constants.TRACKER_ADDR[1]
+tracker_port = 22236
+    
+tracker_socket = None
+tracker_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+peer_port = generate_random_port()
+peer_ip = get_host_default_interface_ip()
 
 # Existing functions (e.g., create_torrent_file, download_mode, etc.) remain unchanged
 # ...existing code...
 
 #----------------------------------PEER_FE-----------------------
+class SlidePanel(ctk.CTkFrame):
+  def __init__(self,parent,start_pos,end_pos):
+      super().__init__(master=parent)
+      
+      self.start_pos=start_pos
+      self.end_pos=end_pos
+      self.width = abs(start_pos-end_pos)
+      
+      self.pos = start_pos
+      self.in_start_pos = True
+      
+      self.place(relx=self.start_pos,rely=0,relwidth=self.width,relheight=0.65)
+      
+  def animate(self):
+      if self.in_start_pos:
+          self.animate_forward()
+      else:
+          self.animate_backward()
+  def animate_forward(self):
+      if self.pos > self.end_pos:
+          self.pos -= 0.008
+          self.place(relx=self.pos,rely=0,relwidth=self.width,relheight=0.65)
+          self.after(10,self.animate_forward)
+      else:
+          self.in_start_pos = False
+  def animate_backward(self):
+      if self.pos < self.start_pos:
+          self.pos += 0.008
+          self.place(relx=self.pos,rely=0,relwidth=self.width,relheight= 0.65)
+          self.after(10,self.animate_backward)
+      else:
+          self.in_start_pos = True
 
-class PeerNodeApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Peer Node")
-        self.tracker_socket = None
-        self.peer_host = get_host_default_interface_ip()
-        self.peer_port = generate_random_port()
-        self.tracker_host = config.constants.TRACKER_ADDR[1]
-        self.tracker_port = 22236
+class PEER_FE(ctk.CTk):
+  
+  def __init__(self, peer_ip, peer_port, trackerHost, trackerPort):
+    super().__init__()
+    self.username = None
+    self.password = None
+    
+    self.numberOfFileUploaded= 0
+    self.numberOfFileDownloaded= 0
+    
+    self.fileUploaded= []
+    self.fileDownloaded= []
+    self.fileExist= []
 
-        # GUI Elements
-        self.create_widgets()
+    self.peer_ip= peer_ip
+    self.peer_port= peer_port
 
-    def create_widgets(self):
-        # Title
-        tk.Label(self.root, text="Peer Node", font=("Arial", 16)).pack(pady=10)
+    self.trackerHost = tracker_host
+    self.trackerPort = tracker_port
+    self.tracker_socket = tracker_socket
+    
+    #---------------------------initial frame for each page-----------------------------
+    self.frameInitialPage= ctk.CTkFrame(self,width= 1020, height=700)
+    self.frameExecuteLoginButton= ctk.CTkFrame(self,width=WIDTH,height=HEIGHT)
+    self.frameConnectToServer= ctk.CTkFrame(self,width=WIDTH,height=HEIGHT)
+    self.frameMainPage= ctk.CTkFrame(self,width=WIDTH,height=HEIGHT)
+    self.frameExecuteUploadButton= ctk.CTkFrame(self,width=WIDTH,height=HEIGHT)
+    self.frameExecuteDownloadButton= ctk.CTkFrame(self,width=WIDTH,height=HEIGHT)
+    
+    
+    self.textFileExist= ctk.CTkTextbox(self.frameExecuteDownloadButton)
+    
+    self.animatePanelDownload = SlidePanel(self.frameExecuteDownloadButton, 1,0.7)
+    self.outputFileDownload = ctk.CTkTextbox(self.animatePanelDownload)
+    
+    self.animatePaneUpload = SlidePanel(self.frameExecuteUploadButton, 1,0.7)
+    self.outputFileUpload = ctk.CTkTextbox(self.animatePaneUpload)
 
-        # Buttons
-        tk.Button(self.root, text="Send File", command=self.send_file).pack(pady=5)
-        tk.Button(self.root, text="Download File", command=self.download_file).pack(pady=5)
-        tk.Button(self.root, text="Exit", command=self.exit_app).pack(pady=5)
+    self.framestart= ctk.CTkFrame(self,width=WIDTH,height=HEIGHT)
 
-        # Status
-        self.status_label = tk.Label(self.root, text="Status: Disconnected", fg="red")
-        self.status_label.pack(pady=10)
 
-        # Connect to Tracker
-        self.connect_to_tracker()
+    self.ServerHost = None
+    self.ServerPort = None
 
-    def connect_to_tracker(self):
+    self.resizable(False,False)
+    self.title("tk")
+    self.geometry("900x600")
+  
+    self.current_frame = self.initialPage()
+    self.current_frame.pack()  
+    
+  def switch_frame(self, frame):
+    self.current_frame.pack_forget()
+    self.current_frame = frame()
+    self.current_frame.pack(padx = 0) 
+    
+  def changeTheme(self):
+    type = ctk.get_appearance_mode()
+    if(type=="Light"):
+        ctk.set_appearance_mode("dark")
+    else:
+        ctk.set_appearance_mode("light")
+    
+  def initialPage(self):
+    
+    frame_label = ctk.CTkLabel(self.frameInitialPage, text="WELCOME TO\n BITTORENT FILE SHARING", font=("Arial",40,"bold"))
+    frame_label.place(relx=0.5,rely=0.4,anchor=tk.CENTER)
+
+    button_start = ctk.CTkButton(self.frameInitialPage, text="START", font=("Arial", 15, "bold"),
+                                    command=lambda:self.switch_frame(self.mainPage))
+    button_start.place(relx=0.4,rely=0.7,anchor=tk.CENTER)
+    
+    button_sign_up = ctk.CTkButton(self.frameInitialPage, text="CHANGE THEME", font=("Arial", 15, "bold"), command= self.changeTheme)
+    button_sign_up.place(relx=0.6,rely=0.7,anchor=tk.CENTER)
+    
+    return self.frameInitialPage
+
+
+  def mainPage(self):
+      
+    frame_label = ctk.CTkLabel(self.frameMainPage, text="THE MAIN FUNCTION", font=("Arial",40,"bold"))
+    frame_label.place(relx=0.5,rely=0.2,anchor=tk.CENTER)
+    
+    frame_label = ctk.CTkLabel(self.frameMainPage, text="INFORMATION OF PEER", font=("Arial",20, "bold"))
+    frame_label.place(relx=0.5,rely=0.4,anchor=tk.CENTER)
+    
+    frame_label = ctk.CTkLabel(self.frameMainPage, text="Peer Host: "+ self.peer_ip, font=("Arial", 15 ))
+    frame_label.place(relx=0.5,rely=0.5,anchor=tk.CENTER)
+    
+    frame_label = ctk.CTkLabel(self.frameMainPage, text="Peer Port: "+ str(self.peer_port), font=("Arial", 15))
+    frame_label.place(relx=0.5,rely=0.55,anchor=tk.CENTER)
+    
+    #----------------Button UPLOAD---------------------------------------------------------
+    self.btn_upload = ctk.CTkButton(self.frameMainPage, text="UPLOAD", font=("Arial", 20, "bold"),
+                                    command=lambda:self.switch_frame(self.executeUploadButton))
+    self.btn_upload.place(relx=0.3,rely = 0.7,anchor =tk.CENTER)
+    #---------------------------------------------------------------------------------------
+    
+    #---------------------------Button DOWNLOAD----------------------------------------------
+    self.btn_download = ctk.CTkButton(self.frameMainPage, text="DOWNLOAD", font=("Arial", 20, "bold"),
+                                        command=lambda:self.switch_frame(self.executeDownloadButton))
+    self.btn_download.place(relx=0.5,rely = 0.7,anchor =tk.CENTER)
+    #----------------------------------------------------------------------------------------
+    
+    #----------------------------Button CHANGE THEME--------------------------------------------------------
+    self.btn_show_listpeer = ctk.CTkButton(self.frameMainPage, text="CHANGE THEME", font=("Arial", 20, "bold"),
+                                            command= self.changeTheme)
+    self.btn_show_listpeer.place(relx= 0.7,rely=0.7,anchor = tk.CENTER)
+    #--------------------------------------------------------------------------------------------------
+  
+    return self.frameMainPage
+
+  def executeUploadButton(self):
+
+    header_upload = ctk.CTkLabel(self.frameExecuteUploadButton, text="UPLOAD FILE", font=("Arial", 40,"bold"))
+    header_upload.place(relx = 0.5,rely=0.3,anchor = CENTER)
+    
+    self.outputFileUpload.place(relx=0.5,rely=0.55,anchor=ctk.CENTER,relwidth=0.8,relheight=0.8)
+    self.outputFileUpload.configure(state=DISABLED)
+
+    upload_label = ctk.CTkLabel(self.frameExecuteUploadButton, text="Enter your path of file", font=("Arial", 20,"bold"))
+    upload_label.place(relx = 0.5, rely=0.45,anchor = tk.CENTER)
+
+    upload_entry = ctk.CTkEntry(self.frameExecuteUploadButton, width=300, height= 10, placeholder_text="Enter path to file")
+    upload_entry.place(relx = 0.5, rely=0.5,anchor = tk.CENTER)
+    
+    btn_BACK= ctk.CTkButton(self.frameExecuteUploadButton,text="BACK", font=("Arial", 20,"bold"),
+                          command =lambda: self.switch_frame(self.mainPage))
+    btn_BACK.place(relx= 0.3, rely= 0.7, anchor= tk.CENTER)
+    
+    btn_upload = ctk.CTkButton(self.frameExecuteUploadButton, text="UPLOAD", font=("Arial", 20,"bold"),
+                                command=lambda:(self.select_file()))      
+    btn_upload.place(relx = 0.5,rely=0.7,anchor = CENTER)
+  
+    
+    btn_view_repo=ctk.CTkButton(self.frameExecuteUploadButton,text="FILE UPLOADED", font=("Arial", 20,"bold"),
+                          command =lambda:self.animatePaneUpload.animate())
+    btn_view_repo.place(relx= 0.7, rely= 0.7, anchor= tk.CENTER)
+    
+    list_header=ctk.CTkLabel(self.animatePaneUpload, text = " LIST FILES ", font=("Comic Sans",30,"bold"))
+    list_header.place(relx=0.5,rely=0.1,anchor=ctk.CENTER)
+    # list_header.pack()
+
+    return self.frameExecuteUploadButton
+  
+  def select_file(self):
+    file_path = filedialog.askopenfilename()
+    if file_path:
         try:
-            self.tracker_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.tracker_socket.connect((self.tracker_host, self.tracker_port))
-            self.status_label.config(text="Status: Connected to Tracker", fg="green")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to connect to tracker: {e}")
+            filename = os.path.basename(file_path)
+            print(f"Selected file: {filename}")
+            if not os.path.isfile(file_path):
+                messagebox.showerror("Error", "Invalid file selected.")
+                return
 
-    def send_file(self):
-        file_path = filedialog.askopenfilename(title="Select File to Send")
-        if not file_path:
-            return
+            # Send the "send" command to the tracker
+            user_input = f'send "{filename}"'
+            response = send_message(self.tracker_socket, user_input)
+            print(response)
 
-        try:
-            torrent_info, info_hash = create_torrent_file(file_path)
+            # Create the torrent file
+            torrent_info, info_hash = create_torrent_file(filename)
+            print(f"Peers that have the {filename} file")
+            torrent_file_path = f"metainfo/{filename}.torrent"
+
+            # Announce to the tracker
             announce_to_tracker(
-                tracker_port=self.tracker_socket,
+                tracker_port=tracker_socket,
                 info_hash=info_hash,
-                peer_id=self.peer_port,
-                ip=self.peer_host,
-                port=self.peer_port,
+                peer_id=peer_port,
+                ip =peer_ip,
+                port=peer_port,
                 event='started'
             )
-            Thread(target=send_mode, args=(self.peer_host, self.peer_port, torrent_info["file_name"])).start()
-            messagebox.showinfo("Success", f"File '{os.path.basename(file_path)}' is now being shared.")
+
+            # Start the send mode in a separate thread
+            Thread(target=send_mode, args=(self.peer_ip, self.peer_port, torrent_info["file_name"])).start()
+
+            messagebox.showinfo("Success", f"File '{filename}' uploaded successfully!")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to send file: {e}")
+            messagebox.showerror("Error", f"Failed to upload file: {e}")
 
-    def download_file(self):
-        torrent_file = filedialog.askopenfilename(title="Select Torrent File", filetypes=[("Torrent Files", "*.torrent")])
-        if not torrent_file:
-            return
+  def executeDownloadButton(self):
 
-        try:
-            info_hash = get_info_hash(torrent_file)
-            torrent_info = parse_torrent_file(torrent_file)
-            peerlist_response = send_message(self.tracker_socket, json.dumps(info_hash))
-            peer_list = json.loads(peerlist_response)
-            success = download_mode(torrent_info, peer_list)
-            if success:
-                messagebox.showinfo("Success", "File downloaded successfully.")
-            else:
-                messagebox.showerror("Error", "Failed to download all chunks.")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to download file: {e}")
+    header_upload = ctk.CTkLabel(self.frameExecuteDownloadButton, text="DOWNLOAD FILE", font=("Arial", 40,"bold"))
+    header_upload.place(relx = 0.5,rely=0.1,anchor = CENTER)
+    
+    listOfFile = ctk.CTkLabel(self.frameExecuteDownloadButton, text="LIST OF FILES", font=("Arial", 20,"bold"))
+    listOfFile.place(relx = 0.5,rely=0.2,anchor = CENTER)
+ 
+    self.textFileExist.place(relx=0.5,rely=0.44,anchor=ctk.CENTER,relwidth=0.3,relheight=0.4)
+    self.textFileExist.configure(state=DISABLED)
+    # self.showFileExist()
+    
+    self.outputFileDownload.place(relx=0.5,rely=0.55,anchor=ctk.CENTER,relwidth=0.8,relheight=0.8)
+    self.outputFileDownload.configure(state=DISABLED)
 
-    def exit_app(self):
-        if self.tracker_socket:
-            self.tracker_socket.close()
-        self.root.destroy()
+    upload_label = ctk.CTkLabel(self.frameExecuteDownloadButton, text="Enter your file name", font=("Arial", 20,"bold"))
+    upload_label.place(relx = 0.5, rely=0.7,anchor = tk.CENTER)
+
+    dwnload_entry = ctk.CTkEntry(self.frameExecuteDownloadButton, width=300, height= 10, placeholder_text="Enter file name")
+    dwnload_entry.place(relx = 0.5, rely=0.75,anchor = tk.CENTER)
+    
+    btn_BACK= ctk.CTkButton(self.frameExecuteDownloadButton,text="BACK", font=("Arial", 20,"bold"),
+                          command =lambda: self.switch_frame(self.mainPage))
+    btn_BACK.place(relx= 0.3, rely= 0.85, anchor= tk.CENTER)
+    
+    btn_dwnload = ctk.CTkButton(self.frameExecuteDownloadButton, text="DOWNLOAD", font=("Arial", 20,"bold"),
+                                command=lambda:(self.getFileDownload(dwnload_entry)))      
+    btn_dwnload.place(relx = 0.5,rely=0.85,anchor = CENTER)
+  
+    
+    btn_view_repo=ctk.CTkButton(self.frameExecuteDownloadButton,text="FILE DOWNLOADED", font=("Arial", 20,"bold"),
+                          command =lambda: self.animatePanelDownload.animate())
+    btn_view_repo.place(relx= 0.75, rely= 0.85, anchor= tk.CENTER)
+    
+    list_header=ctk.CTkLabel(self.animatePanelDownload, text = " LIST FILES ", font=("Comic Sans",30,"bold")
+                              )
+    list_header.place(relx=0.5,rely=0.1,anchor=ctk.CENTER)
+    # list_header.pack()
+    return self.frameExecuteDownloadButton
+
+  def getFileDownload(self, download_entry):
+    stringFileNameDownload = str(download_entry.get())
+    print(stringFileNameDownload)
+    if stringFileNameDownload == "":
+        messagebox.showerror("Error", "File doesn't exist!")
+        return
+
+    torrent_file = f"metainfo/{stringFileNameDownload}.torrent"
+    if not os.path.isfile(torrent_file):
+        print("----------Invalid file input---------------")
+        messagebox.showerror("Error", "Torrent file not found!")
+        return
+
+    # Gửi yêu cầu đến tracker
+    user_input = f'download "{stringFileNameDownload}"'
+    response = send_message(self.tracker_socket, user_input)
+    print(f"[DEBUG] Tracker response: {response}")
+
+    if not response:
+        messagebox.showerror("Error", "No response from tracker!")
+        return
+
+    # Lấy danh sách peer từ tracker
+    info_hash = get_info_hash(torrent_file)
+    torrent_info = parse_torrent_file(torrent_file)
+    peerlist_response = send_message(self.tracker_socket, json.dumps(info_hash))
+
+    if not peerlist_response:
+        print("[ERROR] No response from tracker for peer list.")
+        messagebox.showerror("Error", "Failed to get peer list from tracker!")
+        return
+
+    try:
+        peer_list = json.loads(peerlist_response)
+    except json.JSONDecodeError as e:
+        print(f"[ERROR] Failed to decode JSON: {e}")
+        print(f"[DEBUG] Response content: {peerlist_response}")
+        messagebox.showerror("Error", "Invalid response from tracker!")
+        return
+
+    print("milestone 0")
+    download_mode(torrent_info, peer_list)
+      
+    self.switch_frame(self.executeDownloadButton)
 
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = PeerNodeApp(root)
-    root.mainloop()
+
 
 #----------------------------------FOLDER & METAINFO (.TORRENT)-----------------------
 def create_torrent_file(file_path, piece_length=1024, torrent_path=None):
@@ -320,14 +552,15 @@ def announce_to_tracker(tracker_port, info_hash, peer_id, ip, port, event='start
     except Exception as e:
         print(f"[ERROR] Failed to announce to tracker: {e}")
 
-def connect_to_tracker(host, port, peerip, peerport):
+def connect_to_tracker(host, port, peerip, peer_port):
+    global tracker_socket
     try:
         tracker_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tracker_socket.connect((host, port))
         print(f"[Peer] Connected to tracker {host}:{port}")
         time.sleep(1)
         tracker_socket.send(peerip.encode("utf-8"))
-        tracker_socket.send(str(peerport).encode("utf-8"))
+        tracker_socket.send(str(peer_port).encode("utf-8"))
     except Exception as e:
         print(f"[Peer] Failed to connect to tracker: {e}")
 
@@ -335,28 +568,27 @@ def connect_to_tracker(host, port, peerip, peerport):
     print("Welcome to STA \n")
     print("------List of commands-----\n")
     print("send <filename>: upload file to tracker to save.\n")
-    print("search <filename>: find the file to download to get information of the peer.\n")
-    print("connect: connect to the peer to get the file.\n")
+    # print("search <filename>: find the file to download to get information of the peer.\n")
+    # print("connect: connect to the peer to get the file.\n")
     print("exit: exit the peer and disconnect from the tracker.\n")
     time.sleep(1)
-    while True:
-        if flag == 1:
-            time.sleep(1)
-            continue
 
-        user_input = input("Enter command: ")
-        if user_input.lower() == "exit":
-            print("[Peer] Exiting...")
-            exit(0)
-            break
 
-        elif (user_input.startswith("download")):
+
+    app = PEER_FE(peerip, peer_port, tracker_host, tracker_port)
+    app.mainloop()
+
+    user_input = input("Enter command: ")
+    if user_input.lower() == "exit":
+        print("[Peer] Exiting...")
+        exit(0)
+
+    elif (user_input.startswith("download")):
             command, *args = user_input.split(" ", 1)
             filename = args[0]
             torrent_file = f"metainfo/{filename}.torrent"
             if not(os.path.isfile(torrent_file)):
                 print("----------Invalid file input---------------")
-                continue
             response = send_message(tracker_socket, user_input)
             print(response)
 
@@ -367,50 +599,26 @@ def connect_to_tracker(host, port, peerip, peerport):
             print("milestone 0")
             download_mode(torrent_info, peer_list)
 
-        elif user_input.startswith("send"):
-            command, *args = user_input.split(" ", 1)
-            filename = args[0]
-            response = send_message(tracker_socket, user_input)
-            print(response)
-            if not(os.path.isfile(filename)):
-                print("----------Invalid file input---------------")
-                continue
+    #     response = send_message(tracker_socket, user_input)
+    #     if response:
+    #         print(f"[Tracker]: {response}")
 
-            torrent_info, info_hash = create_torrent_file(filename)
-            print(f"Peers that have the {filename} file")
-            torrent_file_path = f"metainfo/{filename}.torrent"
+    #     else:
+    #         print("[Peer] Unknown command.")
 
-            # Announce to tracker about the file
-            announce_to_tracker(
-                tracker_port=tracker_socket,
-                info_hash=info_hash,
-                peer_id=peerport,
-                ip =peerip,
-                port=peerport,
-                event='started'
-            )
-
-            Thread(target=send_mode, args=(peerip, peerport, torrent_info["file_name"])).start()
-            continue
-
-        response = send_message(tracker_socket, user_input)
-        if response:
-            print(f"[Tracker]: {response}")
-
-        else:
-            print("[Peer] Unknown command.")
 #==================================================================================
 
 if __name__ == "__main__":
-    peer_host = get_host_default_interface_ip()
-    peer_port = generate_random_port()
+    peer_ip = peer_ip
+    peer_port = peer_port
 
     print(f"this is the peer ID: {peer_port}, the same as the port")
 
-    tracker_host = config.constants.TRACKER_ADDR[1]
-    tracker_port = 22236
+
 
     # Thread(target=host_peer, args=[peer_host, peer_port]).start()
 
-    connect_to_tracker(tracker_host, tracker_port, peer_host, peer_port)
+    
+    connect_to_tracker(tracker_host, tracker_port, peer_ip, peer_port)
+    
 
