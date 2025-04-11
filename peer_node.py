@@ -1,3 +1,5 @@
+import tkinter as tk
+from tkinter import filedialog, messagebox
 from utils import *
 import socket
 import random
@@ -5,15 +7,105 @@ from threading import Thread
 import time
 import os
 import json
-import bencodepy
 import hashlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from configs import CFG, Config, get_host_default_interface_ip
+
 config = Config.from_json(CFG)
 
 PIECE_SIZE = config.constants.CHUNK_PIECES_SIZE  # 512KB per piece
-
 flag = 0
+
+# Existing functions (e.g., create_torrent_file, download_mode, etc.) remain unchanged
+# ...existing code...
+
+#----------------------------------PEER_FE-----------------------
+
+class PeerNodeApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Peer Node")
+        self.tracker_socket = None
+        self.peer_host = get_host_default_interface_ip()
+        self.peer_port = generate_random_port()
+        self.tracker_host = config.constants.TRACKER_ADDR[1]
+        self.tracker_port = 22236
+
+        # GUI Elements
+        self.create_widgets()
+
+    def create_widgets(self):
+        # Title
+        tk.Label(self.root, text="Peer Node", font=("Arial", 16)).pack(pady=10)
+
+        # Buttons
+        tk.Button(self.root, text="Send File", command=self.send_file).pack(pady=5)
+        tk.Button(self.root, text="Download File", command=self.download_file).pack(pady=5)
+        tk.Button(self.root, text="Exit", command=self.exit_app).pack(pady=5)
+
+        # Status
+        self.status_label = tk.Label(self.root, text="Status: Disconnected", fg="red")
+        self.status_label.pack(pady=10)
+
+        # Connect to Tracker
+        self.connect_to_tracker()
+
+    def connect_to_tracker(self):
+        try:
+            self.tracker_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.tracker_socket.connect((self.tracker_host, self.tracker_port))
+            self.status_label.config(text="Status: Connected to Tracker", fg="green")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to connect to tracker: {e}")
+
+    def send_file(self):
+        file_path = filedialog.askopenfilename(title="Select File to Send")
+        if not file_path:
+            return
+
+        try:
+            torrent_info, info_hash = create_torrent_file(file_path)
+            announce_to_tracker(
+                tracker_port=self.tracker_socket,
+                info_hash=info_hash,
+                peer_id=self.peer_port,
+                ip=self.peer_host,
+                port=self.peer_port,
+                event='started'
+            )
+            Thread(target=send_mode, args=(self.peer_host, self.peer_port, torrent_info["file_name"])).start()
+            messagebox.showinfo("Success", f"File '{os.path.basename(file_path)}' is now being shared.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to send file: {e}")
+
+    def download_file(self):
+        torrent_file = filedialog.askopenfilename(title="Select Torrent File", filetypes=[("Torrent Files", "*.torrent")])
+        if not torrent_file:
+            return
+
+        try:
+            info_hash = get_info_hash(torrent_file)
+            torrent_info = parse_torrent_file(torrent_file)
+            peerlist_response = send_message(self.tracker_socket, json.dumps(info_hash))
+            peer_list = json.loads(peerlist_response)
+            success = download_mode(torrent_info, peer_list)
+            if success:
+                messagebox.showinfo("Success", "File downloaded successfully.")
+            else:
+                messagebox.showerror("Error", "Failed to download all chunks.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to download file: {e}")
+
+    def exit_app(self):
+        if self.tracker_socket:
+            self.tracker_socket.close()
+        self.root.destroy()
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = PeerNodeApp(root)
+    root.mainloop()
 
 #----------------------------------FOLDER & METAINFO (.TORRENT)-----------------------
 def create_torrent_file(file_path, piece_length=1024, torrent_path=None):
