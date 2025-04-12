@@ -192,7 +192,7 @@ class PEER_FE(ctk.CTk):
 
 
     back_image = ctk.CTkImage(Image.open("back.png").resize((40, 40)))
-    btn_BACK= ctk.CTkButton(self.frameExecuteUploadButton,text="", font=("Arial", 20,"bold"),image = back_image,
+    btn_BACK= ctk.CTkButton(self.frameExecuteUploadButton,text="BACK", font=("Arial", 20,"bold"),image = back_image,
                           command =lambda: self.switch_frame(self.mainPage))
     btn_BACK.place(relx= 0.3, rely= 0.7, anchor= tk.CENTER)
     
