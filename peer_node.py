@@ -1,6 +1,7 @@
 import tkinter as tk
 import customtkinter as ctk
 from tkinter import filedialog, messagebox, DISABLED, CENTER, NORMAL
+from PIL import Image, ImageTk
 from utils import *
 import socket
 import random
@@ -18,6 +19,7 @@ import math
 WIDTH = 900
 HEIGHT = 600
 config = Config.from_json(CFG)
+
 
 subFileSize= 512*1024 # 512KB
 PIECE_SIZE = config.constants.CHUNK_PIECES_SIZE  # 512KB per piece
@@ -109,6 +111,9 @@ class PEER_FE(ctk.CTk):
 
     self.framestart= ctk.CTkFrame(self,width=WIDTH,height=HEIGHT)
 
+    self.appearance_mode_optionemenu = ctk.CTkOptionMenu(self, values=["Light", "Dark"],
+                                                                       command=self.change_appearance_mode_event)
+    self.appearance_mode_optionemenu.pack(side="bottom", padx=10, pady=(1, 1))
 
     self.ServerHost = None
     self.ServerPort = None
@@ -119,19 +124,17 @@ class PEER_FE(ctk.CTk):
   
     self.current_frame = self.initialPage()
     self.current_frame.pack()  
+
+
+  def change_appearance_mode_event(self, new_appearance_mode: str):
+        ctk.set_appearance_mode(new_appearance_mode)  
     
   def switch_frame(self, frame):
     self.current_frame.pack_forget()
     self.current_frame = frame()
     self.current_frame.pack(padx = 0) 
     
-  def changeTheme(self):
-    type = ctk.get_appearance_mode()
-    if(type=="Light"):
-        ctk.set_appearance_mode("dark")
-    else:
-        ctk.set_appearance_mode("light")
-    
+ 
   def initialPage(self):
     
     frame_label = ctk.CTkLabel(self.frameInitialPage, text="WELCOME TO\n BITTORENT FILE SHARING", font=("Arial",40,"bold"))
@@ -139,17 +142,16 @@ class PEER_FE(ctk.CTk):
 
     button_start = ctk.CTkButton(self.frameInitialPage, text="START", font=("Arial", 15, "bold"),
                                     command=lambda:self.switch_frame(self.mainPage))
-    button_start.place(relx=0.4,rely=0.7,anchor=tk.CENTER)
+    button_start.place(relx=0.5,rely=0.7,anchor=tk.CENTER)
     
-    button_sign_up = ctk.CTkButton(self.frameInitialPage, text="CHANGE THEME", font=("Arial", 15, "bold"), command= self.changeTheme)
-    button_sign_up.place(relx=0.6,rely=0.7,anchor=tk.CENTER)
+
     
     return self.frameInitialPage
 
 
   def mainPage(self):
       
-    frame_label = ctk.CTkLabel(self.frameMainPage, text="THE MAIN FUNCTION", font=("Arial",40,"bold"))
+    frame_label = ctk.CTkLabel(self.frameMainPage, text="TORRENT", font=("Arial",40,"bold"))
     frame_label.place(relx=0.5,rely=0.2,anchor=tk.CENTER)
     
     frame_label = ctk.CTkLabel(self.frameMainPage, text="INFORMATION OF PEER", font=("Arial",20, "bold"))
@@ -162,22 +164,21 @@ class PEER_FE(ctk.CTk):
     frame_label.place(relx=0.5,rely=0.55,anchor=tk.CENTER)
     
     #----------------Button UPLOAD---------------------------------------------------------
-    self.btn_upload = ctk.CTkButton(self.frameMainPage, text="UPLOAD", font=("Arial", 20, "bold"),
+    upload_image = ctk.CTkImage(Image.open("upload_icon.png"), size=(40, 40))
+    btn_upload = ctk.CTkButton(self.frameMainPage, text="UPLOAD", font=("Arial", 20, "bold"),image= upload_image,
                                     command=lambda:self.switch_frame(self.executeUploadButton))
-    self.btn_upload.place(relx=0.3,rely = 0.7,anchor =tk.CENTER)
+    btn_upload.place(relx=0.5,rely = 0.7,anchor =tk.CENTER)
+
     #---------------------------------------------------------------------------------------
     
     #---------------------------Button DOWNLOAD----------------------------------------------
-    self.btn_download = ctk.CTkButton(self.frameMainPage, text="DOWNLOAD", font=("Arial", 20, "bold"),
+    download_image = ctk.CTkImage(Image.open("download_icon.png").resize((40, 40)))
+    self.btn_download = ctk.CTkButton(self.frameMainPage, text="DOWNLOAD", font=("Arial", 20, "bold"),image = download_image,
                                         command=lambda:self.switch_frame(self.executeDownloadButton))
-    self.btn_download.place(relx=0.5,rely = 0.7,anchor =tk.CENTER)
+    self.btn_download.place(relx=0.5,rely = 0.85,anchor =tk.CENTER)
     #----------------------------------------------------------------------------------------
     
-    #----------------------------Button CHANGE THEME--------------------------------------------------------
-    self.btn_show_listpeer = ctk.CTkButton(self.frameMainPage, text="CHANGE THEME", font=("Arial", 20, "bold"),
-                                            command= self.changeTheme)
-    self.btn_show_listpeer.place(relx= 0.7,rely=0.7,anchor = tk.CENTER)
-    #--------------------------------------------------------------------------------------------------
+
   
     return self.frameMainPage
 
@@ -189,17 +190,14 @@ class PEER_FE(ctk.CTk):
     self.outputFileUpload.place(relx=0.5,rely=0.55,anchor=ctk.CENTER,relwidth=0.8,relheight=0.8)
     self.outputFileUpload.configure(state=DISABLED)
 
-    upload_label = ctk.CTkLabel(self.frameExecuteUploadButton, text="Enter your path of file", font=("Arial", 20,"bold"))
-    upload_label.place(relx = 0.5, rely=0.45,anchor = tk.CENTER)
 
-    upload_entry = ctk.CTkEntry(self.frameExecuteUploadButton, width=300, height= 10, placeholder_text="Enter path to file")
-    upload_entry.place(relx = 0.5, rely=0.5,anchor = tk.CENTER)
-    
-    btn_BACK= ctk.CTkButton(self.frameExecuteUploadButton,text="BACK", font=("Arial", 20,"bold"),
+    back_image = ctk.CTkImage(Image.open("back.png").resize((40, 40)))
+    btn_BACK= ctk.CTkButton(self.frameExecuteUploadButton,text="", font=("Arial", 20,"bold"),image = back_image,
                           command =lambda: self.switch_frame(self.mainPage))
     btn_BACK.place(relx= 0.3, rely= 0.7, anchor= tk.CENTER)
     
-    btn_upload = ctk.CTkButton(self.frameExecuteUploadButton, text="UPLOAD", font=("Arial", 20,"bold"),
+    upload_image = ctk.CTkImage(Image.open("upload_icon.png").resize((40, 40)))
+    btn_upload = ctk.CTkButton(self.frameExecuteUploadButton, text="UPLOAD", font=("Arial", 20,"bold"),image = upload_image,
                                 command=lambda:(self.select_file()))      
     btn_upload.place(relx = 0.5,rely=0.7,anchor = CENTER)
   
@@ -248,42 +246,48 @@ class PEER_FE(ctk.CTk):
             Thread(target=send_mode, args=(self.peer_ip, self.peer_port, torrent_info["file_name"])).start()
 
             messagebox.showinfo("Success", f"File '{filename}' uploaded successfully!")
+            self.fileUploaded.append(filename)
+            self.showFileUploaded(filename)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to upload file: {e}")
 
+  def showFileUploaded(self, fileName):
+        self.outputFileUpload.configure(state=NORMAL)
+        self.numberOfFileUploaded+= 1
+        self.outputFileUpload.insert(ctk.END, f"{self.numberOfFileUploaded}.   \"{fileName}\"" +"\n\n" )
+        self.outputFileUpload.see(ctk.END)
+        self.outputFileUpload.configure(state=DISABLED)
+  
   def executeDownloadButton(self):
 
     header_upload = ctk.CTkLabel(self.frameExecuteDownloadButton, text="DOWNLOAD FILE", font=("Arial", 40,"bold"))
-    header_upload.place(relx = 0.5,rely=0.1,anchor = CENTER)
+    header_upload.place(relx = 0.5,rely=0.3,anchor = CENTER)
     
-    listOfFile = ctk.CTkLabel(self.frameExecuteDownloadButton, text="LIST OF FILES", font=("Arial", 20,"bold"))
-    listOfFile.place(relx = 0.5,rely=0.2,anchor = CENTER)
- 
-    self.textFileExist.place(relx=0.5,rely=0.44,anchor=ctk.CENTER,relwidth=0.3,relheight=0.4)
-    self.textFileExist.configure(state=DISABLED)
-    # self.showFileExist()
+
     
     self.outputFileDownload.place(relx=0.5,rely=0.55,anchor=ctk.CENTER,relwidth=0.8,relheight=0.8)
     self.outputFileDownload.configure(state=DISABLED)
 
     upload_label = ctk.CTkLabel(self.frameExecuteDownloadButton, text="Enter your file name", font=("Arial", 20,"bold"))
-    upload_label.place(relx = 0.5, rely=0.7,anchor = tk.CENTER)
+    upload_label.place(relx = 0.5, rely=0.5,anchor = tk.CENTER)
 
-    dwnload_entry = ctk.CTkEntry(self.frameExecuteDownloadButton, width=300, height= 10, placeholder_text="Enter file name")
-    dwnload_entry.place(relx = 0.5, rely=0.75,anchor = tk.CENTER)
-    
-    btn_BACK= ctk.CTkButton(self.frameExecuteDownloadButton,text="BACK", font=("Arial", 20,"bold"),
+    dwnload_entry = ctk.CTkEntry(self.frameExecuteDownloadButton, width=300, height= 10)
+    dwnload_entry.place(relx = 0.5, rely=0.55,anchor = tk.CENTER)
+
+    back_image = ctk.CTkImage(Image.open("back.png").resize((40, 40)))    
+    btn_BACK= ctk.CTkButton(self.frameExecuteDownloadButton,text="BACK", font=("Arial", 20,"bold"),image = back_image,
                           command =lambda: self.switch_frame(self.mainPage))
-    btn_BACK.place(relx= 0.3, rely= 0.85, anchor= tk.CENTER)
-    
-    btn_dwnload = ctk.CTkButton(self.frameExecuteDownloadButton, text="DOWNLOAD", font=("Arial", 20,"bold"),
+    btn_BACK.place(relx= 0.3, rely= 0.7, anchor= tk.CENTER)
+
+    download_image = ctk.CTkImage(Image.open("download_icon.png").resize((40, 40)))
+    btn_dwnload = ctk.CTkButton(self.frameExecuteDownloadButton, text="DOWNLOAD", font=("Arial", 20,"bold"),image = download_image,
                                 command=lambda:(self.getFileDownload(dwnload_entry)))      
-    btn_dwnload.place(relx = 0.5,rely=0.85,anchor = CENTER)
+    btn_dwnload.place(relx = 0.5,rely=0.7,anchor = CENTER)
   
     
     btn_view_repo=ctk.CTkButton(self.frameExecuteDownloadButton,text="FILE DOWNLOADED", font=("Arial", 20,"bold"),
                           command =lambda: self.animatePanelDownload.animate())
-    btn_view_repo.place(relx= 0.75, rely= 0.85, anchor= tk.CENTER)
+    btn_view_repo.place(relx= 0.75, rely= 0.7, anchor= tk.CENTER)
     
     list_header=ctk.CTkLabel(self.animatePanelDownload, text = " LIST FILES ", font=("Comic Sans",30,"bold")
                               )
@@ -566,38 +570,38 @@ def connect_to_tracker(host, port, peerip, peer_port):
 
     global flag
     print("Welcome to STA \n")
-    print("------List of commands-----\n")
-    print("send <filename>: upload file to tracker to save.\n")
-    # print("search <filename>: find the file to download to get information of the peer.\n")
-    # print("connect: connect to the peer to get the file.\n")
-    print("exit: exit the peer and disconnect from the tracker.\n")
-    time.sleep(1)
+    # print("------List of commands-----\n")
+    # print("send <filename>: upload file to tracker to save.\n")
+    # # print("search <filename>: find the file to download to get information of the peer.\n")
+    # # print("connect: connect to the peer to get the file.\n")
+    # print("exit: exit the peer and disconnect from the tracker.\n")
+    # time.sleep(1)
 
 
 
     app = PEER_FE(peerip, peer_port, tracker_host, tracker_port)
     app.mainloop()
+    exit
+    # user_input = input("Enter command: ")
+    # if user_input.lower() == "exit":
+    #     print("[Peer] Exiting...")
+    #     exit(0)
 
-    user_input = input("Enter command: ")
-    if user_input.lower() == "exit":
-        print("[Peer] Exiting...")
-        exit(0)
+    # elif (user_input.startswith("download")):
+    #         command, *args = user_input.split(" ", 1)
+    #         filename = args[0]
+    #         torrent_file = f"metainfo/{filename}.torrent"
+    #         if not(os.path.isfile(torrent_file)):
+    #             print("----------Invalid file input---------------")
+    #         response = send_message(tracker_socket, user_input)
+    #         print(response)
 
-    elif (user_input.startswith("download")):
-            command, *args = user_input.split(" ", 1)
-            filename = args[0]
-            torrent_file = f"metainfo/{filename}.torrent"
-            if not(os.path.isfile(torrent_file)):
-                print("----------Invalid file input---------------")
-            response = send_message(tracker_socket, user_input)
-            print(response)
-
-            info_hash = get_info_hash(torrent_file)
-            torrent_info = parse_torrent_file(torrent_file)
-            peerlist_response = send_message(tracker_socket, json.dumps(info_hash))
-            peer_list = json.loads(peerlist_response)
-            print("milestone 0")
-            download_mode(torrent_info, peer_list)
+    #         info_hash = get_info_hash(torrent_file)
+    #         torrent_info = parse_torrent_file(torrent_file)
+    #         peerlist_response = send_message(tracker_socket, json.dumps(info_hash))
+    #         peer_list = json.loads(peerlist_response)
+    #         print("milestone 0")
+    #         download_mode(torrent_info, peer_list)
 
     #     response = send_message(tracker_socket, user_input)
     #     if response:

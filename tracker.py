@@ -93,6 +93,8 @@ class Tracker:
         print("------List of commands-----\n")
         print("show_peer: Show peers connected to the tracker.\n")
         print("show_history: Show history of activities in the tracker.\n")
+        print("show_file: Show files being tracked.\n")
+        print("exit: Exit the tracker.\n")
         while True:
             command = input("Enter command:")
             if command == "show_peer":
@@ -101,6 +103,15 @@ class Tracker:
             elif command == "show_history":
                 response = json.dumps(self.history, indent=2)
                 print(response)
+            elif command == "show_file":
+                # Extract filenames from self.peers
+                files = [info_hash for info_hash in self.peers.keys()]
+                if files:
+                    print("Files being tracked:")
+                    for idx, file in enumerate(files, start=1):
+                        print(f"{idx}. {file}")
+                else:
+                    print("No files are currently being tracked.")
             elif command == "exit":
                 exit(0)
                 break
