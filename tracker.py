@@ -72,12 +72,9 @@ class Tracker:
                         filename = data_list[1]
                         info_hash = data_list[2]
                         info_hash = info_hash.strip()
-                        #print(data_from_announce)
-                        #conn.send("Enter download mode \n".encode())
-                        #data_from_announce = conn.recv(config.constants.BUFFER_SIZE).decode()
+
                         print(f"this is the data from announce: {info_hash}")
-                        #info_hash = json.loads(data_from_announce)
-                        #print(f"info_hash: {info_hash}")
+
                         peer_list = self.peers.get(info_hash, [])
                         
                         print(f"[Tracker] Peers list cho {info_hash}: {peer_list}")
@@ -93,6 +90,7 @@ class Tracker:
             except Exception as e:
                 print(f"Error handling client {addr}: {e}")
                 break
+            
     # ===============================end======================================
 
     @staticmethod

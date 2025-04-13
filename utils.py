@@ -4,6 +4,9 @@ import warnings
 import os
 from datetime import datetime
 from configs import CFG, Config
+import bencodepy
+import hashlib
+import json
 config = Config.from_json(CFG)
 
 # global variables
@@ -35,4 +38,8 @@ def generate_random_port() -> int:
         rand_port = random.randint(available_ports[0], available_ports[1])
     used_ports.append(rand_port)
     return rand_port
+
+
+        
+
 
