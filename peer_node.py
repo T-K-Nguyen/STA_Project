@@ -330,6 +330,13 @@ class PEER_FE(ctk.CTk):
 
         self.peer_be.download_file(stringFileNameDownload, on_complete=on_download_complete)
 
+    def showFileDownloaded(self, fileName):
+        self.outputFileDownload.configure(state=NORMAL)
+        self.numberOfFileDownloaded+= 1
+        self.outputFileDownload.insert(ctk.END, f"{self.numberOfFileDownloaded}:   \"{fileName}\"" +"\n\n" )
+        self.outputFileDownload.see(ctk.END)
+        self.outputFileDownload.configure(state=DISABLED)
+
 
 if __name__ == "__main__":
     peer_host = get_host_default_interface_ip()
