@@ -203,7 +203,7 @@ class PEER_FE(ctk.CTk):
         frame_label.place(relx=0.5,rely=0.55,anchor=tk.CENTER)
         
         #----------------Button UPLOAD---------------------------------------------------------
-        upload_image = ctk.CTkImage(Image.open("images/upload_icon.png"), size=(40, 40))
+        upload_image = ctk.CTkImage(Image.open("images/upload_icon.png"), size=(75, 40))
         btn_upload = ctk.CTkButton(self.frameMainPage, text="UPLOAD", font=("Arial", 20, "bold"),image= upload_image,
                                         command=lambda:self.switch_frame(self.executeUploadButton))
         btn_upload.place(relx=0.5,rely = 0.7,anchor =tk.CENTER)
@@ -211,7 +211,7 @@ class PEER_FE(ctk.CTk):
         #---------------------------------------------------------------------------------------
         
         #---------------------------Button DOWNLOAD----------------------------------------------
-        download_image = ctk.CTkImage(Image.open("images/download_icon.png").resize((50, 50)))
+        download_image = ctk.CTkImage(Image.open("images/download_icon.png"), size=(40, 40))
         self.btn_download = ctk.CTkButton(self.frameMainPage, text="DOWNLOAD", font=("Arial", 20, "bold"),image = download_image,
                                             command=lambda:self.switch_frame(self.executeDownloadButton))
         self.btn_download.place(relx=0.5,rely = 0.85,anchor =tk.CENTER)
@@ -268,6 +268,13 @@ class PEER_FE(ctk.CTk):
             self.outputFileUpload.insert(ctk.END, f"{self.numberOfFileUploaded}.   \"{fileName}\"" +"\n\n" )
             self.outputFileUpload.see(ctk.END)
             self.outputFileUpload.configure(state=DISABLED)
+
+    def showFileDownloaded(self, fileName):
+            self.outputFileDownload.configure(state=NORMAL)
+            self.numberOfFileDownloaded+= 1
+            self.outputFileDownload.insert(ctk.END, f"{self.numberOfFileDownloaded}.   \"{fileName}\"" +"\n\n" )
+            self.outputFileDownload.see(ctk.END)
+            self.outputFileDownload.configure(state=DISABLED)
     
     def executeDownloadButton(self):
 
@@ -315,6 +322,7 @@ class PEER_FE(ctk.CTk):
         def on_download_complete(success, msg):
             if success:
                 self.fileDownloaded.append(stringFileNameDownload)
+                self.showFileDownloaded(stringFileNameDownload)
                 messagebox.showinfo("Success", msg)
             else:
                 messagebox.showerror("Error", msg)
