@@ -252,7 +252,6 @@ class PEER_FE(ctk.CTk):
     
     def select_file(self):
         filename = filedialog.askopenfilename()
-        filename = os.path.basename(filename)
         if filename:
             status, msg = self.peer_be.upload_file(filename)
             if status:
