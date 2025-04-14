@@ -1,0 +1,10 @@
+__pycache__/
+
+my_venv/
+
+downloads/*.txt
+
+metainfo/*.torrent
+
+file3
+file4
